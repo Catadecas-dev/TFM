@@ -1,0 +1,49 @@
+name: 'Terraform AWS CI/CD'
+
+# This workflow is triggered on pushes to the main branch
+# that include changes in the 'aws/' directory.
+# It can also be triggered manually.
+
+# Required secrets:
+# - AWS_ACCESS_KEY_ID: Your AWS access key
+# - AWS_SECRET_ACCESS_KEY: Your AWS secret key
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'aws/**'
+  workflow_dispatch:
+
+jobs:
+  terraform:
+    name: 'Terraform AWS'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./aws
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: terraform plan -input=false
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform apply -auto-approve -input=false
