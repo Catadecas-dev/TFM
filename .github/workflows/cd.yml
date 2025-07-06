@@ -1,5 +1,13 @@
 name: CD Pipeline
 
+# This workflow deploys to both AWS EKS and Azure AKS
+# Required secrets:
+# - DOCKERHUB_USERNAME: Your Docker Hub username
+# - DOCKERHUB_TOKEN: Your Docker Hub access token
+# - AWS_ACCESS_KEY_ID: AWS access key with EKS permissions
+# - AWS_SECRET_ACCESS_KEY: AWS secret access key
+# - AZURE_CREDENTIALS: JSON output from az ad sp create-for-rbac
+
 on:
   workflow_run:
     workflows: ["CI Pipeline"]
@@ -78,7 +86,7 @@ jobs:
     - name: Set AKS context
       uses: azure/aks-set-context@v3
       with:
-        resource-group: my-resource-group
+        resource-group: aks-resource-group
         cluster-name: my-aks-cluster
     
     - name: Deploy to Azure AKS
