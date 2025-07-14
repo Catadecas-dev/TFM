@@ -20,25 +20,17 @@ jobs:
       - name: Update kubeconfig for EKS
         run: aws eks update-kubeconfig --name my-eks-cluster --region us-east-1
 
-      - name: Prepare Kubernetes Secret
-        env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASS: ${{ secrets.DB_PASS }}
-          DB_NAME: ${{ secrets.DB_NAME }}
+      - name: Create/Update Kubernetes Secret
         run: |
-          DB_HOST_B64=$(echo -n "$DB_HOST" | base64)
-          DB_USER_B64=$(echo -n "$DB_USER" | base64)
-          DB_PASS_B64=$(echo -n "$DB_PASS" | base64)
-          DB_NAME_B64=$(echo -n "$DB_NAME" | base64)
-          sed -i "s|__DB_HOST__|${DB_HOST_B64}|g" kubernetes/secrets.yaml
-          sed -i "s|__DB_USER__|${DB_USER_B64}|g" kubernetes/secrets.yaml
-          sed -i "s|__DB_PASS__|${DB_PASS_B64}|g" kubernetes/secrets.yaml
-          sed -i "s|__DB_DATABASE__|${DB_NAME_B64}|g" kubernetes/secrets.yaml
+          kubectl create secret generic ghost-db-secret \
+            --from-literal=DB_HOST=${{ secrets.DB_HOST }} \
+            --from-literal=DB_USER=${{ secrets.DB_USER }} \
+            --from-literal=DB_PASS='${{ secrets.DB_PASS }}' \
+            --from-literal=DB_DATABASE=${{ secrets.DB_NAME }} \
+            --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy Ghost to EKS
         run: |
-          kubectl apply -f kubernetes/secrets.yaml
           kubectl apply -f kubernetes/service.yaml
 
           echo "Waiting for EKS LoadBalancer..."
@@ -71,28 +63,17 @@ jobs:
           resource-group: aks-resource-group
           cluster-name: my-aks-cluster
 
-      - name: Prepare Kubernetes Secret
-        env:
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASS: ${{ secrets.DB_PASS }}
-          DB_NAME: ${{ secrets.DB_NAME }}
+      - name: Create/Update Kubernetes Secret
         run: |
-          # This step needs its own checkout to get a clean secrets.yaml file
-          # because the AWS job modifies it in place.
-          git checkout -- kubernetes/secrets.yaml
-          DB_HOST_B64=$(echo -n "$DB_HOST" | base64)
-          DB_USER_B64=$(echo -n "$DB_USER" | base64)
-          DB_PASS_B64=$(echo -n "$DB_PASS" | base64)
-          DB_NAME_B64=$(echo -n "$DB_NAME" | base64)
-          sed -i "s|__DB_HOST__|${DB_HOST_B64}|g" kubernetes/secrets.yaml
-          sed -i "s|__DB_USER__|${DB_USER_B64}|g" kubernetes/secrets.yaml
-          sed -i "s|__DB_PASS__|${DB_PASS_B64}|g" kubernetes/secrets.yaml
-          sed -i "s|__DB_DATABASE__|${DB_NAME_B64}|g" kubernetes/secrets.yaml
+          kubectl create secret generic ghost-db-secret \
+            --from-literal=DB_HOST=${{ secrets.DB_HOST }} \
+            --from-literal=DB_USER=${{ secrets.DB_USER }} \
+            --from-literal=DB_PASS='${{ secrets.DB_PASS }}' \
+            --from-literal=DB_DATABASE=${{ secrets.DB_NAME }} \
+            --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy Ghost to AKS
         run: |
-          kubectl apply -f kubernetes/secrets.yaml
           kubectl apply -f kubernetes/service.yaml
 
           echo "Waiting for AKS LoadBalancer..."
