@@ -21,11 +21,16 @@ jobs:
         run: aws eks update-kubeconfig --name my-eks-cluster --region us-east-1
 
       - name: Prepare Kubernetes Secret
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+          DB_NAME: ${{ secrets.DB_NAME }}
         run: |
-          sed -i "s|__DB_HOST__|$(echo -n '${{ secrets.DB_HOST }}' | base64)|g" kubernetes/secrets.yaml
-          sed -i "s|__DB_USER__|$(echo -n '${{ secrets.DB_USER }}' | base64)|g" kubernetes/secrets.yaml
-          sed -i "s|__DB_PASS__|$(echo -n '${{ secrets.DB_PASS }}' | base64)|g" kubernetes/secrets.yaml
-          sed -i "s|__DB_DATABASE__|$(echo -n '${{ secrets.DB_NAME }}' | base64)|g" kubernetes/secrets.yaml
+          sed -i "s|__DB_HOST__|$(echo -n "$DB_HOST" | base64)|g" kubernetes/secrets.yaml
+          sed -i "s|__DB_USER__|$(echo -n "$DB_USER" | base64)|g" kubernetes/secrets.yaml
+          sed -i "s|__DB_PASS__|$(echo -n "$DB_PASS" | base64)|g" kubernetes/secrets.yaml
+          sed -i "s|__DB_DATABASE__|$(echo -n "$DB_NAME" | base64)|g" kubernetes/secrets.yaml
 
       - name: Deploy Ghost to EKS
         run: |
@@ -63,14 +68,19 @@ jobs:
           cluster-name: my-aks-cluster
 
       - name: Prepare Kubernetes Secret
+        env:
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASS: ${{ secrets.DB_PASS }}
+          DB_NAME: ${{ secrets.DB_NAME }}
         run: |
           # This step needs its own checkout to get a clean secrets.yaml file
           # because the AWS job modifies it in place.
           git checkout -- kubernetes/secrets.yaml
-          sed -i "s|__DB_HOST__|$(echo -n '${{ secrets.DB_HOST }}' | base64)|g" kubernetes/secrets.yaml
-          sed -i "s|__DB_USER__|$(echo -n '${{ secrets.DB_USER }}' | base64)|g" kubernetes/secrets.yaml
-          sed -i "s|__DB_PASS__|$(echo -n '${{ secrets.DB_PASS }}' | base64)|g" kubernetes/secrets.yaml
-          sed -i "s|__DB_DATABASE__|$(echo -n '${{ secrets.DB_NAME }}' | base64)|g" kubernetes/secrets.yaml
+          sed -i "s|__DB_HOST__|$(echo -n "$DB_HOST" | base64)|g" kubernetes/secrets.yaml
+          sed -i "s|__DB_USER__|$(echo -n "$DB_USER" | base64)|g" kubernetes/secrets.yaml
+          sed -i "s|__DB_PASS__|$(echo -n "$DB_PASS" | base64)|g" kubernetes/secrets.yaml
+          sed -i "s|__DB_DATABASE__|$(echo -n "$DB_NAME" | base64)|g" kubernetes/secrets.yaml
 
       - name: Deploy Ghost to AKS
         run: |
