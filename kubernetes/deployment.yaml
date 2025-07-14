@@ -42,6 +42,27 @@ spec:
             secretKeyRef:
               name: ghost-db-secret
               key: DB_DATABASE
+        - name: mail__transport
+          value: "SMTP"
+        - name: mail__options__service
+          value: "SES"
+        - name: mail__options__port
+          value: "465"
+        - name: mail__options__host
+          valueFrom:
+            secretKeyRef:
+              name: ghost-mail-secret
+              key: SES_HOST
+        - name: mail__options__auth__user
+          valueFrom:
+            secretKeyRef:
+              name: ghost-mail-secret
+              key: SES_USER
+        - name: mail__options__auth__pass
+          valueFrom:
+            secretKeyRef:
+              name: ghost-mail-secret
+              key: SES_PASS
         ports:
         - containerPort: 2368
           name: http

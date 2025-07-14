@@ -29,6 +29,14 @@ jobs:
             --from-literal=DB_DATABASE=${{ secrets.DB_NAME }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
+      - name: Create/Update Kubernetes Mail Secret
+        run: |
+          kubectl create secret generic ghost-mail-secret \
+            --from-literal=SES_HOST=${{ secrets.SES_HOST }} \
+            --from-literal=SES_USER=${{ secrets.SES_USER }} \
+            --from-literal=SES_PASS=${{ secrets.SES_PASS }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
       - name: Deploy Ghost to EKS
         run: |
           kubectl apply -f kubernetes/service.yaml
@@ -70,6 +78,14 @@ jobs:
             --from-literal=DB_USER=${{ secrets.DB_USER }} \
             --from-literal=DB_PASS='${{ secrets.DB_PASS }}' \
             --from-literal=DB_DATABASE=${{ secrets.DB_NAME }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Create/Update Kubernetes Mail Secret
+        run: |
+          kubectl create secret generic ghost-mail-secret \
+            --from-literal=SES_HOST=${{ secrets.SES_HOST }} \
+            --from-literal=SES_USER=${{ secrets.SES_USER }} \
+            --from-literal=SES_PASS=${{ secrets.SES_PASS }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy Ghost to AKS
