@@ -1,100 +1,91 @@
-name: CD Pipeline
-
-# This workflow deploys to both AWS EKS and Azure AKS
-# Required secrets:
-# - AWS_ACCESS_KEY_ID: AWS access key with EKS permissions
-# - AWS_SECRET_ACCESS_KEY: AWS secret access key
-# - AZURE_CREDENTIALS: JSON output from az ad sp create-for-rbac
-# - DB_HOST: The hostname of the MySQL database
-# - DB_DATABASE: The name of the BookStack database (e.g., bookstackdb)
-# - DB_USER: The username for the database
-# - DB_PASS: The password for the database
+name: Deploy Ghost Multi-Cloud
 
 on:
   workflow_dispatch:
 
 jobs:
-  deploy-aws:
+  deploy-to-aws-eks:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-    - name: Update kubeconfig
-      run: aws eks update-kubeconfig --name my-eks-cluster --region us-east-1
+      - name: Update kubeconfig for EKS
+        run: aws eks update-kubeconfig --name my-eks-cluster --region us-east-1
 
-    - name: Create Kubernetes Secret
-      run: |
-        kubectl create secret generic bookstack-db-secret \
-          --from-literal=DB_HOST=${{ secrets.DB_HOST }} \
-          --from-literal=DB_DATABASE=${{ secrets.DB_DATABASE }} \
-          --from-literal=DB_USER=${{ secrets.DB_USER }} \
-          --from-literal=DB_PASS='${{ secrets.DB_PASS }}' \
-          --dry-run=client -o yaml | kubectl apply -f -
+      - name: Prepare Kubernetes Secret
+        run: |
+          sed -i "s|__DB_HOST__|$(echo -n '${{ secrets.DB_HOST }}' | base64)|g" kubernetes/secrets.yaml
+          sed -i "s|__DB_USER__|$(echo -n '${{ secrets.DB_USER }}' | base64)|g" kubernetes/secrets.yaml
+          sed -i "s|__DB_PASS__|$(echo -n '${{ secrets.DB_PASS }}' | base64)|g" kubernetes/secrets.yaml
+          sed -i "s|__DB_DATABASE__|$(echo -n '${{ secrets.DB_NAME }}' | base64)|g" kubernetes/secrets.yaml
 
-    - name: Deploy to AWS EKS
-      run: |
-        kubectl apply -f kubernetes/pvc.yaml
-        kubectl apply -f kubernetes/service.yaml
-        echo "Waiting for external hostname..."
-        while [ -z "$(kubectl get service bookstack-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')" ]; do
-          sleep 10
-        done
-        HOSTNAME=$(kubectl get service bookstack-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-        echo "External hostname found: $HOSTNAME"
-        sed "s|__APP_URL__|http://$HOSTNAME|g" kubernetes/deployment.yaml > kubernetes/deployment-aws.yaml
-        kubectl apply -f kubernetes/deployment-aws.yaml
+      - name: Deploy Ghost to EKS
+        run: |
+          kubectl apply -f kubernetes/secrets.yaml
+          kubectl apply -f kubernetes/service.yaml
 
-    - name: Verify deployment
-      run: |
-        kubectl rollout status deployment/bookstack-deployment
-        echo "Application deployed to AWS EKS: $(kubectl get service bookstack-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
+          echo "Waiting for EKS LoadBalancer..."
+          while [ -z "$(kubectl get service ghost-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')" ]; do sleep 10; done
+          HOSTNAME=$(kubectl get service ghost-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          echo "EKS Hostname: $HOSTNAME"
 
-  deploy-azure:
+          sed -i "s|__APP_URL__|http://$HOSTNAME|g" kubernetes/deployment.yaml
+          kubectl apply -f kubernetes/deployment.yaml
+
+      - name: Verify EKS Deployment
+        run: |
+          kubectl rollout status deployment/ghost-deployment
+          echo "Ghost successfully deployed to AWS EKS."
+
+  deploy-to-azure-aks:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Azure Login
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Set AKS context
-      uses: azure/aks-set-context@v3
-      with:
-        resource-group: aks-resource-group
-        cluster-name: my-aks-cluster
+      - name: Set AKS context
+        uses: azure/aks-set-context@v3
+        with:
+          resource-group: aks-resource-group
+          cluster-name: my-aks-cluster
 
-    - name: Create Kubernetes Secret
-      run: |
-        kubectl create secret generic bookstack-db-secret \
-          --from-literal=DB_HOST=${{ secrets.DB_HOST }} \
-          --from-literal=DB_DATABASE=${{ secrets.DB_DATABASE }} \
-          --from-literal=DB_USER=${{ secrets.DB_USER }} \
-          --from-literal=DB_PASS='${{ secrets.DB_PASS }}' \
-          --dry-run=client -o yaml | kubectl apply -f -
+      - name: Prepare Kubernetes Secret
+        run: |
+          # This step needs its own checkout to get a clean secrets.yaml file
+          # because the AWS job modifies it in place.
+          git checkout -- kubernetes/secrets.yaml
+          sed -i "s|__DB_HOST__|$(echo -n '${{ secrets.DB_HOST }}' | base64)|g" kubernetes/secrets.yaml
+          sed -i "s|__DB_USER__|$(echo -n '${{ secrets.DB_USER }}' | base64)|g" kubernetes/secrets.yaml
+          sed -i "s|__DB_PASS__|$(echo -n '${{ secrets.DB_PASS }}' | base64)|g" kubernetes/secrets.yaml
+          sed -i "s|__DB_DATABASE__|$(echo -n '${{ secrets.DB_NAME }}' | base64)|g" kubernetes/secrets.yaml
 
-    - name: Deploy to Azure AKS
-      run: |
-        kubectl apply -f kubernetes/pvc.yaml
-        kubectl apply -f kubernetes/service.yaml
-        echo "Waiting for external IP..."
-        while [ -z "$(kubectl get service bookstack-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')" ]; do
-          sleep 10
-        done
-        IP=$(kubectl get service bookstack-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-        echo "External IP found: $IP"
-        sed "s|__APP_URL__|http://$IP|g" kubernetes/deployment.yaml > kubernetes/deployment-azure.yaml
-        kubectl apply -f kubernetes/deployment-azure.yaml
+      - name: Deploy Ghost to AKS
+        run: |
+          kubectl apply -f kubernetes/secrets.yaml
+          kubectl apply -f kubernetes/service.yaml
 
-    - name: Verify deployment
-      run: |
-        kubectl rollout status deployment/bookstack-deployment
-        echo "Application deployed to Azure AKS: $(kubectl get service bookstack-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
+          echo "Waiting for AKS LoadBalancer..."
+          while [ -z "$(kubectl get service ghost-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')" ]; do sleep 10; done
+          IP=$(kubectl get service ghost-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          echo "AKS IP: $IP"
+
+          sed -i "s|__APP_URL__|http://$IP|g" kubernetes/deployment.yaml
+          kubectl apply -f kubernetes/deployment.yaml
+
+      - name: Verify AKS Deployment
+        run: |
+          kubectl rollout status deployment/ghost-deployment
+          echo "Ghost successfully deployed to Azure AKS."

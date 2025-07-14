@@ -1,57 +1,65 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: bookstack-deployment
+  name: ghost-deployment
+  labels:
+    app: ghost
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: bookstack-app
+      app: ghost
   template:
     metadata:
       labels:
-        app: bookstack-app
+        app: ghost
     spec:
       containers:
-      - name: bookstack
-        image: lscr.io/linuxserver/bookstack:latest
+      - name: ghost
+        image: ghost:latest
         env:
-        - name: APP_URL
-          value: "__APP_URL__"
-        - name: TZ
-          value: "Etc/UTC"
-        - name: APP_KEY
-          value: "base64:wJ6pLp8+nQ4yL8mN1gZqXvR2bS5cE7hF9aK3jD0iG+s="
-        - name: DB_HOST
+        - name: url
+          value: "__APP_URL__" # This will be the public URL of your blog
+        - name: database__client
+          value: "mysql"
+        - name: database__connection__host
           valueFrom:
             secretKeyRef:
-              name: bookstack-db-secret
+              name: ghost-db-secret
               key: DB_HOST
-        - name: DB_USER
+        - name: database__connection__user
           valueFrom:
             secretKeyRef:
-              name: bookstack-db-secret
+              name: ghost-db-secret
               key: DB_USER
-        - name: DB_PASS
+        - name: database__connection__password
           valueFrom:
             secretKeyRef:
-              name: bookstack-db-secret
+              name: ghost-db-secret
               key: DB_PASS
-        - name: DB_DATABASE
+        - name: database__connection__database
           valueFrom:
             secretKeyRef:
-              name: bookstack-db-secret
+              name: ghost-db-secret
               key: DB_DATABASE
         ports:
-        - containerPort: 80
+        - containerPort: 2368
+          name: http
         volumeMounts:
-        - name: bookstack-config
-          mountPath: /config
+        - name: ghost-content
+          mountPath: /var/lib/ghost/content
       volumes:
-      - name: bookstack-config
+      - name: ghost-content
         persistentVolumeClaim:
-          claimName: bookstack-config-pvc
-      securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
+          claimName: ghost-content-pvc
+--- 
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ghost-content-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

@@ -216,7 +216,7 @@ resource "aws_eks_node_group" "eks_node_group" {
   ]
 }
 
-# --- RDS for MySQL Database ---
+# --- RDS for MySQL Database (for Ghost) ---
 
 # 1. Database Credentials
 resource "random_password" "db_password" {
@@ -226,21 +226,21 @@ resource "random_password" "db_password" {
 }
 
 # 2. Database Networking
-resource "aws_db_subnet_group" "db_subnet_group" {
-  name       = "bookstack-db-subnet-group"
+resource "aws_db_subnet_group" "ghost_db_subnet_group" {
+  name       = "ghost-db-subnet-group"
   subnet_ids = aws_subnet.eks_subnet[*].id
 
   tags = {
-    Name = "BookStack DB Subnet Group"
+    Name = "Ghost DB Subnet Group"
   }
 }
 
 # WARNING: This security group allows access from all IPs on port 3306.
 # This is for simplicity in this project. For production, you should restrict
 # this to your Kubernetes clusters' outbound IPs or the EKS Node Security Group.
-resource "aws_security_group" "db_sg" {
-  name        = "bookstack-db-sg"
-  description = "Allow all inbound MySQL traffic"
+resource "aws_security_group" "ghost_db_sg" {
+  name        = "ghost-db-sg"
+  description = "Allow all inbound MySQL traffic for Ghost"
   vpc_id      = aws_vpc.eks_vpc.id
 
   ingress {
@@ -258,22 +258,22 @@ resource "aws_security_group" "db_sg" {
   }
 
   tags = {
-    Name = "bookstack-db-sg"
+    Name = "ghost-db-sg"
   }
 }
 
 # 3. Database Instance
-resource "aws_db_instance" "bookstack_db" {
-  identifier             = "bookstack-db-instance"
-  db_name                = "bookstackdb"
+resource "aws_db_instance" "ghost_db" {
+  identifier             = "ghost-db-instance"
+  db_name                = "ghostdb"
   engine                 = "mysql"
   engine_version         = "8.0"
   instance_class         = "db.t3.micro"
   allocated_storage      = 20
-  username               = "mysqladmin"
+  username               = "ghostadmin"
   password               = random_password.db_password.result
-  db_subnet_group_name   = aws_db_subnet_group.db_subnet_group.name
-  vpc_security_group_ids = [aws_security_group.db_sg.id]
+  db_subnet_group_name   = aws_db_subnet_group.ghost_db_subnet_group.name
+  vpc_security_group_ids = [aws_security_group.ghost_db_sg.id]
   publicly_accessible    = true
   skip_final_snapshot    = true
 }
@@ -281,17 +281,17 @@ resource "aws_db_instance" "bookstack_db" {
 # --- Outputs ---
 
 output "db_host" {
-  value       = aws_db_instance.bookstack_db.endpoint
+  value       = aws_db_instance.ghost_db.endpoint
   description = "The connection endpoint for the RDS instance."
 }
 
 output "db_name" {
-  value       = aws_db_instance.bookstack_db.db_name
+  value       = aws_db_instance.ghost_db.db_name
   description = "The name of the database."
 }
 
 output "db_username" {
-  value       = aws_db_instance.bookstack_db.username
+  value       = aws_db_instance.ghost_db.username
   description = "The master username for the database."
 }
 
