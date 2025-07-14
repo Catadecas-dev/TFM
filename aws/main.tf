@@ -15,7 +15,9 @@ provider "aws" {
 
 # Create a VPC for our EKS cluster
 resource "aws_vpc" "eks_vpc" {
-  cidr_block = "10.0.0.0/16"
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
 
   tags = {
     Name = "eks-vpc"
@@ -212,6 +214,91 @@ resource "aws_eks_node_group" "eks_node_group" {
     aws_iam_role_policy_attachment.eks_node_amazon_ec2_container_registry_read_only,
     aws_iam_role_policy_attachment.eks_node_amazon_eks_cni_policy,
   ]
+}
+
+# --- RDS for MySQL Database ---
+
+# 1. Database Credentials
+resource "random_password" "db_password" {
+  length           = 16
+  special          = true
+  override_special = "!#$%&()*-_=+[]{}<>:?"
+}
+
+# 2. Database Networking
+resource "aws_db_subnet_group" "db_subnet_group" {
+  name       = "bookstack-db-subnet-group"
+  subnet_ids = aws_subnet.eks_subnet[*].id
+
+  tags = {
+    Name = "BookStack DB Subnet Group"
+  }
+}
+
+# WARNING: This security group allows access from all IPs on port 3306.
+# This is for simplicity in this project. For production, you should restrict
+# this to your Kubernetes clusters' outbound IPs or the EKS Node Security Group.
+resource "aws_security_group" "db_sg" {
+  name        = "bookstack-db-sg"
+  description = "Allow all inbound MySQL traffic"
+  vpc_id      = aws_vpc.eks_vpc.id
+
+  ingress {
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "bookstack-db-sg"
+  }
+}
+
+# 3. Database Instance
+resource "aws_db_instance" "bookstack_db" {
+  identifier             = "bookstack-db-instance"
+  db_name                = "bookstackdb"
+  engine                 = "mysql"
+  engine_version         = "8.0"
+  instance_class         = "db.t3.micro"
+  allocated_storage      = 20
+  username               = "mysqladmin"
+  password               = random_password.db_password.result
+  db_subnet_group_name   = aws_db_subnet_group.db_subnet_group.name
+  vpc_security_group_ids = [aws_security_group.db_sg.id]
+  publicly_accessible    = true
+  skip_final_snapshot    = true
+}
+
+# --- Outputs ---
+
+output "db_host" {
+  value       = aws_db_instance.bookstack_db.endpoint
+  description = "The connection endpoint for the RDS instance."
+}
+
+output "db_name" {
+  value       = aws_db_instance.bookstack_db.db_name
+  description = "The name of the database."
+}
+
+output "db_username" {
+  value       = aws_db_instance.bookstack_db.username
+  description = "The master username for the database."
+}
+
+output "db_password" {
+  value       = random_password.db_password.result
+  description = "The master password for the database."
+  sensitive   = true
 }
 
 output "eks_cluster_endpoint" {

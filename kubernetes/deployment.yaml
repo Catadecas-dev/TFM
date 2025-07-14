@@ -1,19 +1,42 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: my-app-deployment
+  name: bookstack-deployment
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: my-app
+      app: bookstack
   template:
     metadata:
       labels:
-        app: my-app
+        app: bookstack
     spec:
       containers:
-      - name: my-app
-        image: jdecas/myapp:latest
+      - name: bookstack
+        image: lscr.io/linuxserver/bookstack:latest
+        env:
+        - name: APP_URL
+          value: "http://localhost" # This will be updated by the service's external IP
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: bookstack-secrets
+              key: db_host
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: bookstack-secrets
+              key: db_user
+        - name: DB_PASS
+          valueFrom:
+            secretKeyRef:
+              name: bookstack-secrets
+              key: db_pass
+        - name: DB_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: bookstack-secrets
+              key: db_database
         ports:
-        - containerPort: 3000
+        - containerPort: 80
