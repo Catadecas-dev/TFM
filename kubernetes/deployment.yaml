@@ -22,21 +22,21 @@ spec:
           valueFrom:
             secretKeyRef:
               name: bookstack-db-secret
-              key: db_host
+              key: DB_HOST
         - name: DB_USER
           valueFrom:
             secretKeyRef:
               name: bookstack-db-secret
-              key: db_user
+              key: DB_USER
         - name: DB_PASS
           valueFrom:
             secretKeyRef:
               name: bookstack-db-secret
-              key: db_pass
+              key: DB_PASS
         - name: DB_DATABASE
           valueFrom:
             secretKeyRef:
               name: bookstack-db-secret
-              key: db_database
+              key: DB_DATABASE
         ports:
         - containerPort: 80
