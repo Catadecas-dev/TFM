@@ -6,11 +6,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: bookstack
+      app: bookstack-app
   template:
     metadata:
       labels:
-        app: bookstack
+        app: bookstack-app
     spec:
       containers:
       - name: bookstack
