@@ -40,8 +40,16 @@ jobs:
 
     - name: Deploy to AWS EKS
       run: |
-        kubectl apply -f kubernetes/deployment.yaml
+        kubectl apply -f kubernetes/pvc.yaml
         kubectl apply -f kubernetes/service.yaml
+        echo "Waiting for external hostname..."
+        while [ -z "$(kubectl get service bookstack-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')" ]; do
+          sleep 10
+        done
+        HOSTNAME=$(kubectl get service bookstack-service -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+        echo "External hostname found: $HOSTNAME"
+        sed "s|__APP_URL__|http://$HOSTNAME|g" kubernetes/deployment.yaml > kubernetes/deployment-aws.yaml
+        kubectl apply -f kubernetes/deployment-aws.yaml
 
     - name: Verify deployment
       run: |
@@ -75,8 +83,16 @@ jobs:
 
     - name: Deploy to Azure AKS
       run: |
-        kubectl apply -f kubernetes/deployment.yaml
+        kubectl apply -f kubernetes/pvc.yaml
         kubectl apply -f kubernetes/service.yaml
+        echo "Waiting for external IP..."
+        while [ -z "$(kubectl get service bookstack-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')" ]; do
+          sleep 10
+        done
+        IP=$(kubectl get service bookstack-service -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        echo "External IP found: $IP"
+        sed "s|__APP_URL__|http://$IP|g" kubernetes/deployment.yaml > kubernetes/deployment-azure.yaml
+        kubectl apply -f kubernetes/deployment-azure.yaml
 
     - name: Verify deployment
       run: |

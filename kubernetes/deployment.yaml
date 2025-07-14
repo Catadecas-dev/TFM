@@ -17,7 +17,11 @@ spec:
         image: lscr.io/linuxserver/bookstack:latest
         env:
         - name: APP_URL
-          value: "http://localhost" # This will be updated by the service's external IP
+          value: "__APP_URL__"
+        - name: TZ
+          value: "Etc/UTC"
+        - name: APP_KEY
+          value: "base64:wJ6pLp8+nQ4yL8mN1gZqXvR2bS5cE7hF9aK3jD0iG+s="
         - name: DB_HOST
           valueFrom:
             secretKeyRef:
@@ -40,3 +44,14 @@ spec:
               key: DB_DATABASE
         ports:
         - containerPort: 80
+        volumeMounts:
+        - name: bookstack-config
+          mountPath: /config
+      volumes:
+      - name: bookstack-config
+        persistentVolumeClaim:
+          claimName: bookstack-config-pvc
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
