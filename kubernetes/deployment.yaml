@@ -63,6 +63,11 @@ spec:
             secretKeyRef:
               name: ghost-mail-secret
               key: SES_PASS
+        - name: mail__from
+          valueFrom:
+            secretKeyRef:
+              name: ghost-mail-secret
+              key: MAIL_FROM_ADDRESS
         ports:
         - containerPort: 2368
           name: http

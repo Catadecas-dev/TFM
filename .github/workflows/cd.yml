@@ -35,6 +35,7 @@ jobs:
             --from-literal=SES_HOST=${{ secrets.SES_HOST }} \
             --from-literal=SES_USER=${{ secrets.SES_USER }} \
             --from-literal=SES_PASS=${{ secrets.SES_PASS }} \
+            --from-literal=MAIL_FROM_ADDRESS='${{ secrets.MAIL_FROM_ADDRESS }}' \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy Ghost to EKS
@@ -86,6 +87,7 @@ jobs:
             --from-literal=SES_HOST=${{ secrets.SES_HOST }} \
             --from-literal=SES_USER=${{ secrets.SES_USER }} \
             --from-literal=SES_PASS=${{ secrets.SES_PASS }} \
+            --from-literal=MAIL_FROM_ADDRESS='${{ secrets.MAIL_FROM_ADDRESS }}' \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy Ghost to AKS
