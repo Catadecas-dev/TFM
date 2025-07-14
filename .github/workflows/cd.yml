@@ -31,19 +31,15 @@ jobs:
 
     - name: Create Kubernetes Secret
       run: |
-        DB_HOST=$(echo -n ${{ secrets.DB_HOST }} | base64)
-        DB_DATABASE=$(echo -n ${{ secrets.DB_DATABASE }} | base64)
-        DB_USER=$(echo -n ${{ secrets.DB_USER }} | base64)
-        DB_PASS=$(echo -n ${{ secrets.DB_PASS }} | base64)
-
-        sed -i "s|REPLACE_WITH_BASE64_DB_HOST|$DB_HOST|" kubernetes/secrets.yaml
-        sed -i "s|REPLACE_WITH_BASE64_DB_DATABASE|$DB_DATABASE|" kubernetes/secrets.yaml
-        sed -i "s|REPLACE_WITH_BASE64_DB_USER|$DB_USER|" kubernetes/secrets.yaml
-        sed -i "s|REPLACE_WITH_BASE64_DB_PASS|$DB_PASS|" kubernetes/secrets.yaml
+        kubectl create secret generic bookstack-db-secret \
+          --from-literal=DB_HOST=${{ secrets.DB_HOST }} \
+          --from-literal=DB_DATABASE=${{ secrets.DB_DATABASE }} \
+          --from-literal=DB_USER=${{ secrets.DB_USER }} \
+          --from-literal=DB_PASS='${{ secrets.DB_PASS }}' \
+          --dry-run=client -o yaml | kubectl apply -f -
 
     - name: Deploy to AWS EKS
       run: |
-        kubectl apply -f kubernetes/secrets.yaml
         kubectl apply -f kubernetes/deployment.yaml
         kubectl apply -f kubernetes/service.yaml
 
@@ -70,19 +66,15 @@ jobs:
 
     - name: Create Kubernetes Secret
       run: |
-        DB_HOST=$(echo -n ${{ secrets.DB_HOST }} | base64)
-        DB_DATABASE=$(echo -n ${{ secrets.DB_DATABASE }} | base64)
-        DB_USER=$(echo -n ${{ secrets.DB_USER }} | base64)
-        DB_PASS=$(echo -n ${{ secrets.DB_PASS }} | base64)
-
-        sed -i "s|REPLACE_WITH_BASE64_DB_HOST|$DB_HOST|" kubernetes/secrets.yaml
-        sed -i "s|REPLACE_WITH_BASE64_DB_DATABASE|$DB_DATABASE|" kubernetes/secrets.yaml
-        sed -i "s|REPLACE_WITH_BASE64_DB_USER|$DB_USER|" kubernetes/secrets.yaml
-        sed -i "s|REPLACE_WITH_BASE64_DB_PASS|$DB_PASS|" kubernetes/secrets.yaml
+        kubectl create secret generic bookstack-db-secret \
+          --from-literal=DB_HOST=${{ secrets.DB_HOST }} \
+          --from-literal=DB_DATABASE=${{ secrets.DB_DATABASE }} \
+          --from-literal=DB_USER=${{ secrets.DB_USER }} \
+          --from-literal=DB_PASS='${{ secrets.DB_PASS }}' \
+          --dry-run=client -o yaml | kubectl apply -f -
 
     - name: Deploy to Azure AKS
       run: |
-        kubectl apply -f kubernetes/secrets.yaml
         kubectl apply -f kubernetes/deployment.yaml
         kubectl apply -f kubernetes/service.yaml
 
