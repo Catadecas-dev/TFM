@@ -19,7 +19,7 @@ spec:
         image: ghost:latest
         env:
         - name: url
-          value: "__APP_URL__" # This will be the public URL of your blog
+          value: "http://adb89c008cfc14dc8bd4e12996aee084-1441024862.us-east-1.elb.amazonaws.com" # This will be the public URL of your blog
         - name: database__client
           value: "mysql"
         - name: database__connection__host
@@ -86,6 +86,7 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
+  storageClassName: aws-ebs-sc
   resources:
     requests:
       storage: 1Gi

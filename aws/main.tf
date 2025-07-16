@@ -121,6 +121,13 @@ resource "aws_eks_cluster" "eks_cluster" {
   ]
 }
 
+# Enable the EBS CSI driver as a managed add-on for the EKS cluster.
+# This is required for PersistentVolumeClaims to be fulfilled.
+resource "aws_eks_addon" "ebs_csi" {
+  cluster_name = aws_eks_cluster.eks_cluster.name
+  addon_name   = "aws-ebs-csi-driver"
+}
+
 # Create an IAM role for the EKS node group
 resource "aws_iam_role" "eks_node_group_role" {
   name = "eks-node-group-role"
@@ -152,6 +159,46 @@ resource "aws_iam_role_policy_attachment" "eks_node_amazon_ec2_container_registr
 resource "aws_iam_role_policy_attachment" "eks_node_amazon_eks_cni_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
   role       = aws_iam_role.eks_node_group_role.name
+}
+
+# IAM Role and Policy for the EBS CSI Driver Service Account
+data "aws_iam_policy_document" "ebs_csi_assume_role_policy" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    effect  = "Allow"
+
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.eks.arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_iam_openid_connect_provider.eks.url, "https://", "")}:sub"
+      values   = ["system:serviceaccount:kube-system:ebs-csi-controller-sa"]
+    }
+  }
+}
+
+resource "aws_iam_role" "ebs_csi_role" {
+  name               = "AmazonEKS_EBS_CSI_DriverRole"
+  assume_role_policy = data.aws_iam_policy_document.ebs_csi_assume_role_policy.json
+}
+
+resource "aws_iam_role_policy_attachment" "ebs_csi_policy_attachment" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  role       = aws_iam_role.ebs_csi_role.name
+}
+
+# Associate the OIDC provider with the EKS cluster
+data "tls_certificate" "eks" {
+  url = aws_eks_cluster.eks_cluster.identity[0].oidc[0].issuer
+}
+
+resource "aws_iam_openid_connect_provider" "eks" {
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.eks.certificates[0].sha1_fingerprint]
+  url             = aws_eks_cluster.eks_cluster.identity[0].oidc[0].issuer
 }
 
 
@@ -303,6 +350,11 @@ output "db_password" {
 
 output "eks_cluster_endpoint" {
   value = aws_eks_cluster.eks_cluster.endpoint
+}
+
+output "ebs_csi_role_arn" {
+  description = "The ARN of the IAM role for the EBS CSI driver"
+  value       = aws_iam_role.ebs_csi_role.arn
 }
 
 output "kubeconfig" {
